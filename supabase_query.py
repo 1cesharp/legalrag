@@ -53,7 +53,18 @@ def get_embedding_model() -> SentenceTransformer:
     global _embedding_model
 
     if _embedding_model is None:
+        # Use specific model version for consistency across environments
         _embedding_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+
+        # Log model info for debugging
+        if STREAMLIT_AVAILABLE:
+            try:
+                import streamlit as st
+                if hasattr(st, 'session_state'):
+                    st.session_state['model_loaded'] = True
+                    st.session_state['model_name'] = 'all-MiniLM-L6-v2'
+            except:
+                pass
 
     return _embedding_model
 
@@ -61,7 +72,8 @@ def query_supabase_rag(
     query: str,
     match_threshold: float = 0.3,
     match_count: int = 20,
-    document_type: Optional[str] = None
+    document_type: Optional[str] = None,
+    debug: bool = False
 ) -> Dict:
     """
     Query Supabase vector database for court documents
@@ -71,10 +83,13 @@ def query_supabase_rag(
         match_threshold: Minimum similarity score (0-1)
         match_count: Maximum number of results to return
         document_type: Filter by document type (e.g., 'affidavit', 'court_order')
+        debug: Show debug information (embedding stats, raw scores)
 
     Returns:
         Dict with status, results, and metadata
     """
+    debug_info = {}
+
     try:
         # Get clients
         supabase = get_supabase_client()
@@ -82,6 +97,16 @@ def query_supabase_rag(
 
         # Generate query embedding
         query_embedding = model.encode(query).tolist()
+
+        # Debug: embedding stats
+        if debug:
+            import numpy as np
+            emb_array = np.array(query_embedding)
+            debug_info['embedding_dims'] = len(query_embedding)
+            debug_info['embedding_norm'] = float(np.linalg.norm(emb_array))
+            debug_info['embedding_mean'] = float(np.mean(emb_array))
+            debug_info['embedding_std'] = float(np.std(emb_array))
+            debug_info['embedding_sample'] = query_embedding[:5]
 
         # Call Supabase search function
         result = supabase.rpc(
@@ -94,13 +119,39 @@ def query_supabase_rag(
             }
         ).execute()
 
+        # Debug: raw result count
+        if debug:
+            debug_info['raw_result_count'] = len(result.data) if result.data else 0
+            debug_info['match_threshold_used'] = match_threshold
+
+            # If no results, try with threshold=0 to see what the max similarity actually is
+            if not result.data:
+                zero_threshold_result = supabase.rpc(
+                    'search_court_documents',
+                    {
+                        'query_embedding': query_embedding,
+                        'match_threshold': 0.0,
+                        'match_count': 5,
+                        'filter_document_type': document_type
+                    }
+                ).execute()
+
+                if zero_threshold_result.data:
+                    top_scores = [r.get('similarity', 0) for r in zero_threshold_result.data[:5]]
+                    debug_info['top_5_scores_any_threshold'] = top_scores
+                    debug_info['max_similarity_in_db'] = max(top_scores) if top_scores else 0
+                else:
+                    debug_info['top_5_scores_any_threshold'] = []
+                    debug_info['max_similarity_in_db'] = 0
+
         if not result.data:
             return {
                 'status': 'SUCCESS',
                 'results': 'No matching documents found. Try broadening your search terms or lowering the similarity threshold.',
                 'documents_searched': 288,
                 'total_in_index': 288,
-                'chunks_found': 0
+                'chunks_found': 0,
+                'debug_info': debug_info if debug else None
             }
 
         # Format results for display
@@ -112,7 +163,8 @@ def query_supabase_rag(
             'documents_searched': 288,
             'total_in_index': 288,
             'chunks_found': len(result.data),
-            'raw_results': result.data
+            'raw_results': result.data,
+            'debug_info': debug_info if debug else None
         }
 
     except Exception as e:

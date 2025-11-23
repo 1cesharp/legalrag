@@ -37,9 +37,9 @@ except ImportError:
 
 # Cached query wrappers for performance
 @st.cache_data(ttl=3600, show_spinner=False)
-def cached_supabase_query(query: str, match_count: int = 20, match_threshold: float = 0.25) -> dict:
+def cached_supabase_query(query: str, match_count: int = 20, match_threshold: float = 0.25, debug: bool = False) -> dict:
     """Cached wrapper for Supabase RAG queries (1 hour TTL)"""
-    return query_supabase_rag(query=query, match_count=match_count, match_threshold=match_threshold)
+    return query_supabase_rag(query=query, match_count=match_count, match_threshold=match_threshold, debug=debug)
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_graphrag_query(topic: str, query: str, method: str) -> dict:
@@ -295,10 +295,12 @@ if st.button("🔍 Execute Query", type="primary", disabled=not query_text):
         def run_supabase_query():
             """Run Supabase query in thread - NO Streamlit UI calls"""
             try:
+                debug_enabled = st.session_state.get('debug_mode', False)
                 result = cached_supabase_query(
                     query=query_text,
                     match_count=match_count,
-                    match_threshold=match_threshold
+                    match_threshold=match_threshold,
+                    debug=debug_enabled
                 )
                 return result
             except Exception as e:
@@ -366,16 +368,31 @@ if st.button("🔍 Execute Query", type="primary", disabled=not query_text):
 
                     try:
                         st.write("📊 Querying permanent vector database...")
+                        debug_enabled = st.session_state.get('debug_mode', False)
                         supabase_result = cached_supabase_query(
                             query=query_text,
                             match_count=match_count,
-                            match_threshold=match_threshold
+                            match_threshold=match_threshold,
+                            debug=debug_enabled
                         )
 
                         if supabase_result.get('status') == 'SUCCESS':
                             chunks_found = supabase_result.get('chunks_found', 0)
                             st.write(f"✅ Found {chunks_found} relevant passages")
                             st.write(f"📈 Query completed (instant with cache)")
+
+                            # Display debug info if available
+                            if debug_enabled and supabase_result.get('debug_info'):
+                                debug_info = supabase_result['debug_info']
+                                with st.expander("🔍 Debug Information", expanded=False):
+                                    st.json(debug_info)
+
+                                    # Show critical info inline if no results
+                                    if chunks_found == 0 and 'max_similarity_in_db' in debug_info:
+                                        max_sim = debug_info['max_similarity_in_db']
+                                        st.warning(f"**Highest similarity score in database: {max_sim:.1%}**")
+                                        st.info(f"Try lowering threshold to {max(0, max_sim - 0.05):.2f} to see results")
+
                             st.session_state.results['supabase'] = supabase_result
                             status.update(label=f"✅ Court Documents complete ({chunks_found} chunks)", state="complete")
                         else:
