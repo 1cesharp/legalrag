@@ -37,9 +37,9 @@ except ImportError:
 
 # Cached query wrappers for performance
 @st.cache_data(ttl=3600, show_spinner=False)
-def cached_supabase_query(query: str, match_count: int = 20) -> dict:
+def cached_supabase_query(query: str, match_count: int = 20, match_threshold: float = 0.1) -> dict:
     """Cached wrapper for Supabase RAG queries (1 hour TTL)"""
-    return query_supabase_rag(query=query, match_count=match_count)
+    return query_supabase_rag(query=query, match_count=match_count, match_threshold=match_threshold)
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_graphrag_query(topic: str, query: str, method: str) -> dict:
@@ -141,6 +141,14 @@ with st.sidebar:
     supabase_enabled = query_mode in ["Dual Query", "Court Documents Only", "Contradiction Analysis"]
     match_count = st.slider("Max results to return", 5, 50, 20, 5, disabled=not supabase_enabled,
                          help="Number of most relevant document chunks to return. More results = more comprehensive search.")
+
+    match_threshold = st.slider("Similarity threshold", 0.0, 1.0, 0.1, 0.05, disabled=not supabase_enabled,
+                               help="Minimum similarity score (0-1). Lower = more results but less relevant. Try 0.1 for broader search.")
+
+    if st.checkbox("Debug mode", help="Show technical details about query execution"):
+        st.session_state.debug_mode = True
+    else:
+        st.session_state.debug_mode = False
 
     st.divider()
 
@@ -289,7 +297,8 @@ if st.button("🔍 Execute Query", type="primary", disabled=not query_text):
             try:
                 result = cached_supabase_query(
                     query=query_text,
-                    match_count=match_count
+                    match_count=match_count,
+                    match_threshold=match_threshold
                 )
                 return result
             except Exception as e:
@@ -359,7 +368,8 @@ if st.button("🔍 Execute Query", type="primary", disabled=not query_text):
                         st.write("📊 Querying permanent vector database...")
                         supabase_result = cached_supabase_query(
                             query=query_text,
-                            match_count=match_count
+                            match_count=match_count,
+                            match_threshold=match_threshold
                         )
 
                         if supabase_result.get('status') == 'SUCCESS':
