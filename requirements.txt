@@ -1,0 +1,25 @@
+# Streamlit Cloud Requirements - Cross-RAG Query Interface v3.0.0
+# Updated: November 23, 2025
+# Supabase + GraphRAG integration
+
+# Core web framework
+streamlit>=1.28.0
+
+# Supabase integration (new - replaces Gemini)
+supabase>=2.0.0
+sentence-transformers>=2.2.0
+
+# Claude API for synthesis
+anthropic>=0.25.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# GraphRAG dependencies (Pass 2)
+# Note: These may need adjustment based on your GraphRAG implementation
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Optional: Performance optimization
+# torch>=2.0.0  # Uncomment if sentence-transformers needs full PyTorch
+# transformers>=4.30.0  # Uncomment if needed by sentence-transformers

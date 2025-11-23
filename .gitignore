@@ -1,0 +1,61 @@
+# Sensitive Data - DO NOT COMMIT
+*.pdf
+*.docx
+*.doc
+*.eml
+*.msg
+
+# Court Documents and Evidence
+CourtDocuments/
+Court-Documents/
+Archive-Original/
+Analysis-AI/
+
+# GraphRAG Data (contains sensitive communications)
+Communications/
+Communications-Pass1-Explicit/
+Communications-Pass2-ParentalAlienation/
+Communications-Pass3-BPD/
+Communications-Pass3-Temporal/
+
+# Indexing scripts and reports (contain sensitive filenames)
+build_supabase_court_rag.py
+SUPABASE_RAG_INDEX_REPORT.md
+SUPABASE_MIGRATION_SUMMARY.md
+test_supabase_query.py
+test_streamlit_playwright.py
+
+# Environment and Secrets
+.env
+.streamlit/secrets.toml
+*.key
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Test outputs
+test_screenshots/
+*.log
+
+# Data files
+*.parquet
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
