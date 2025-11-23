@@ -9,7 +9,14 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 from sentence_transformers import SentenceTransformer
 
-# Load environment
+# Try to import streamlit for cloud deployment
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+
+# Load environment (for local development)
 env_path = Path(__file__).parent.parent.parent / '.env'
 load_dotenv(env_path)
 
@@ -22,11 +29,20 @@ def get_supabase_client() -> Client:
     global _supabase_client
 
     if _supabase_client is None:
-        supabase_url = os.getenv('SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_KEY')
+        # Try Streamlit secrets first (cloud deployment), then fall back to env vars (local)
+        if STREAMLIT_AVAILABLE and hasattr(st, 'secrets'):
+            try:
+                supabase_url = st.secrets.get('SUPABASE_URL')
+                supabase_key = st.secrets.get('SUPABASE_SERVICE_KEY')
+            except:
+                supabase_url = os.getenv('SUPABASE_URL')
+                supabase_key = os.getenv('SUPABASE_SERVICE_KEY')
+        else:
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_SERVICE_KEY')
 
         if not supabase_url or not supabase_key:
-            raise ValueError("Missing Supabase credentials in .env file")
+            raise ValueError("Missing Supabase credentials. Configure in Streamlit Cloud secrets or .env file")
 
         _supabase_client = create_client(supabase_url, supabase_key)
 
