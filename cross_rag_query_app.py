@@ -23,12 +23,17 @@ sys.path.insert(0, str(Path(__file__).parent / "Communications"))
 
 # Import query functions
 from supabase_query import query_supabase_rag
-from cross_rag_orchestrator_FIXED import (
-    query_graphrag_pass2
-)
 
-# Import SIMPLE lawyer-ready synthesis (user feedback: 3 sections only)
-from simple_lawyer_synthesis import simple_synthesis
+# Optional GraphRAG imports (not available in public deployment)
+GRAPHRAG_AVAILABLE = False
+try:
+    from cross_rag_orchestrator_FIXED import query_graphrag_pass2
+    from simple_lawyer_synthesis import simple_synthesis
+    GRAPHRAG_AVAILABLE = True
+except ImportError:
+    # GraphRAG not available - Supabase-only mode
+    query_graphrag_pass2 = None
+    simple_synthesis = None
 
 # Cached query wrappers for performance
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -107,16 +112,25 @@ st.markdown("""
 
 # Header
 st.markdown('<div class="main-header">🔍 Cross-RAG Query Interface</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Query Court Documents (Supabase) + Communications (GraphRAG) simultaneously</div>', unsafe_allow_html=True)
+if GRAPHRAG_AVAILABLE:
+    st.markdown('<div class="sub-header">Query Court Documents (Supabase) + Communications (GraphRAG) simultaneously</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<div class="sub-header">Query Court Documents (Supabase Vector Database)</div>', unsafe_allow_html=True)
+    st.info("ℹ️ GraphRAG features disabled in public deployment. Supabase-only mode active.")
 
 # Sidebar - Query Configuration
 with st.sidebar:
     st.header("⚙️ Query Configuration")
 
-    # Query mode
+    # Query mode (simplified for public deployment)
+    if GRAPHRAG_AVAILABLE:
+        query_mode_options = ["Dual Query", "Court Documents Only", "Communications Only", "Contradiction Analysis"]
+    else:
+        query_mode_options = ["Court Documents Only"]
+
     query_mode = st.radio(
         "Query Mode",
-        ["Dual Query", "Court Documents Only", "Communications Only", "Contradiction Analysis"],
+        query_mode_options,
         help="Choose what to query"
     )
 
@@ -130,26 +144,32 @@ with st.sidebar:
 
     st.divider()
 
-    # GraphRAG settings
-    st.subheader("💬 Communications (GraphRAG)")
-    graphrag_enabled = query_mode in ["Dual Query", "Communications Only", "Contradiction Analysis"]
-    graphrag_method = st.selectbox(
-        "Query method",
-        ["global", "local"],
-        help="Global: Community-based analysis. Local: Entity-based search.",
-        disabled=not graphrag_enabled
-    )
+    # GraphRAG settings (only show if available)
+    if GRAPHRAG_AVAILABLE:
+        st.subheader("💬 Communications (GraphRAG)")
+        graphrag_enabled = query_mode in ["Dual Query", "Communications Only", "Contradiction Analysis"]
+        graphrag_method = st.selectbox(
+            "Query method",
+            ["global", "local"],
+            help="Global: Community-based analysis. Local: Entity-based search.",
+            disabled=not graphrag_enabled
+        )
 
-    st.divider()
+        st.divider()
 
-    # Contradiction synthesis
-    st.subheader("🔄 Contradiction Analysis")
-    enable_synthesis = st.checkbox(
-        "Enable contradiction synthesis",
-        value=(query_mode == "Contradiction Analysis"),
-        disabled=(query_mode != "Contradiction Analysis"),
-        help="Use Claude to analyze contradictions between sources"
-    )
+        # Contradiction synthesis
+        st.subheader("🔄 Contradiction Analysis")
+        enable_synthesis = st.checkbox(
+            "Enable contradiction synthesis",
+            value=(query_mode == "Contradiction Analysis"),
+            disabled=(query_mode != "Contradiction Analysis"),
+            help="Use Claude to analyze contradictions between sources"
+        )
+    else:
+        # GraphRAG not available
+        graphrag_enabled = False
+        graphrag_method = "global"
+        enable_synthesis = False
 
     st.divider()
 
