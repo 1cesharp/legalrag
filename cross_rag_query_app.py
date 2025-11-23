@@ -37,7 +37,7 @@ except ImportError:
 
 # Cached query wrappers for performance
 @st.cache_data(ttl=3600, show_spinner=False)
-def cached_supabase_query(query: str, match_count: int = 20, match_threshold: float = 0.1) -> dict:
+def cached_supabase_query(query: str, match_count: int = 20, match_threshold: float = 0.25) -> dict:
     """Cached wrapper for Supabase RAG queries (1 hour TTL)"""
     return query_supabase_rag(query=query, match_count=match_count, match_threshold=match_threshold)
 
@@ -142,8 +142,8 @@ with st.sidebar:
     match_count = st.slider("Max results to return", 5, 50, 20, 5, disabled=not supabase_enabled,
                          help="Number of most relevant document chunks to return. More results = more comprehensive search.")
 
-    match_threshold = st.slider("Similarity threshold", 0.0, 1.0, 0.1, 0.05, disabled=not supabase_enabled,
-                               help="Minimum similarity score (0-1). Lower = more results but less relevant. Try 0.1 for broader search.")
+    match_threshold = st.slider("Similarity threshold", 0.0, 1.0, 0.25, 0.05, disabled=not supabase_enabled,
+                               help="Minimum similarity score (0-1). Recommended: 0.25-0.30 for quality results. Below 0.20 may return irrelevant matches.")
 
     if st.checkbox("Debug mode", help="Show technical details about query execution"):
         st.session_state.debug_mode = True
